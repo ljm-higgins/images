@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Business‑Intelligence Network – Sleek Grey Drift</title>
+  <style>
+    /* Full‑screen light‑grey canvas */
+    html,body { margin:0; padding:0; overflow:hidden; background:#efefef; }
+    svg        { width:100vw; height:100vh; display:block; }
+
+    /* Node + edge styling */
+    circle { stroke:#4a4a4a; stroke-width:0.6px; }
+    line   { stroke:#7d7d7d; stroke-opacity:0.4; }
+  </style>
+  <!-- D3 v7 from CDN (UMD build) -->
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+  <svg></svg>
+
+  <script>
+  const width  = window.innerWidth;
+  const height = window.innerHeight;
+
+  /* -----------------------------------------------------------------
+     ⚙️  DATA — 120 nodes / ~180 links
+     -----------------------------------------------------------------*/
+  const N = 120;
+  const nodes = Array.from({length: N}, (_, i) => ({ id: i }));
+  const links = Array.from({length: Math.round(N * 1.5)}, () => {
+    let a = Math.floor(Math.random() * N), b = Math.floor(Math.random() * N);
+    while (b === a) b = Math.floor(Math.random() * N);
+    return { source: a, target: b };
+  });
+
+  /* -----------------------------------------------------------------
+     🧲  FORCE‑DIRECTED SIMULATION
+     -----------------------------------------------------------------*/
+  const svg = d3.select("svg");
+
+  const simulation = d3.forceSimulation(nodes)
+    .velocityDecay(0.9)          // slow drift
+    .alphaDecay(0)               // never cools off
+    .alphaTarget(0.04)           // gentle energy
+    .force("link", d3.forceLink(links)
+                         .id(d => d.id)
+                         .distance(80)
+                         .strength(0.7))
+    .force("charge", d3.forceManyBody().strength(-160))
+    .force("center", d3.forceCenter(width / 2, height / 2))
+    .force("collision", d3.forceCollide(14))
+    .on("tick", ticked);
+
+  // Render links
+  const link = svg.append("g")
+      .attr("stroke-width", 0.6)
+    .selectAll("line")
+    .data(links)
+    .join("line");
+
+  // Render nodes (shades of grey)
+  const node = svg.append("g")
+      .attr("stroke", "#4a4a4a")
+      .attr("stroke-width", 0.6)
+    .selectAll("circle")
+    .data(nodes)
+    .join("circle")
+      .attr("r", 6)
+      .attr("fill", (d, i) => d3.interpolateGreys(0.35 + 0.55 * (i / nodes.length)))
+      .call(drag(simulation));
+
+  node.append("title").text(d => `Node ${d.id}`);
+
+  function ticked() {
+    link
+      .attr("x1", d => d.source.x)
+      .attr("y1", d => d.source.y)
+      .attr("x2", d => d.target.x)
+      .attr("y2", d => d.target.y);
+
+    node
+      .attr("cx", d => d.x)
+      .attr("cy", d => d.y);
+  }
+
+  /* -----------------------------------------------------------------
+     ✋  DRAG‑AND‑DROP INTERACTION
+     -----------------------------------------------------------------*/
+  function drag(sim) {
+    function dragstarted(event, d) {
+      if (!event.active) sim.alphaTarget(0.12).restart();
+      d.fx = d.x;
+      d.fy = d.y;
+    }
+    function dragged(event, d) {
+      d.fx = event.x;
+      d.fy = event.y;
+    }
+    function dragended(event, d) {
+      if (!event.active) sim.alphaTarget(0.04);
+      d.fx = null;
+      d.fy = null;
+    }
+    return d3.drag()
+      .on("start", dragstarted)
+      .on("drag", dragged)
+      .on("end", dragended);
+  }
+
+  /* -----------------------------------------------------------------
+     🖥️  HANDLE RESIZE
+     -----------------------------------------------------------------*/
+  window.addEventListener("resize", () => {
+    const w = window.innerWidth, h = window.innerHeight;
+    svg.attr("width", w).attr("height", h);
+    simulation.force("center", d3.forceCenter(w / 2, h / 2)).alpha(0.07).restart();
+  });
+  </script>
+</body>
+</html>
